@@ -12,7 +12,7 @@
         <div class="top">
             <div class="budget">
                 <div class="budget__title">
-                    Available Budget in <span class="budget__title--month">%Month%</span>:
+                    Available Budget in <span id="budget__title--month" class="budget__title--month">%Month%</span>:
                 </div>
                 
                 <div id='budget__value' class="budget__value">+ 2,345.64</div>
@@ -40,12 +40,12 @@
         <div class="bottom">
             <div class="add">
                 <div class="add__container">
-                    <select id='add__type' class="add__type">
+                    <select id='add__type' class="add__type changable">
                         <option value="inc" selected>+</option>
                         <option value="exp">-</option>
                     </select>
-                    <input id='add__description' type="text" class="add__description clearable" placeholder="Add description">
-                    <input id='add__value' type="number" class="add__value clearable" placeholder="Value">
+                    <input id='add__description' type="text" class="add__description clearable changable" placeholder="Add description">
+                    <input id='add__value' type="number" class="add__value clearable changable" placeholder="Value">
                     <button id='add__btn' class="add__btn"><i class="ion-ios-checkmark-outline"></i></button>
                 </div>
             </div>

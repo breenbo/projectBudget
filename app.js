@@ -10,7 +10,22 @@ let budgetController = (function() {
         this.id = id;
         this.description = description;
         this.value = value;
+        this.percentage = -1;
     }
+    // add prototype to calculate individual percentages
+    Expense.prototype.calcPercentage = function(totalIncome) {
+        // calculate the individual percentage
+        if (totalIncome > 0) {
+            this.percentage = Math.round((this.value/totalIncome) * 100)
+        } else {
+            this.percentage = -1
+        }
+    }
+    // get the calculated percentage
+    Expense.prototype.getPercentage = function() {
+        return this.percentage
+    }
+
     let Income = function(id, description, value) {
         this.id = id;
         this.description = description;
@@ -26,7 +41,6 @@ let budgetController = (function() {
         })
         // store the result in the datastructure
         data.totals[type] = sum
-
     }
 
     // create a data structure to store all values : an object with object of arrays for all incomes and expenses
@@ -105,6 +119,21 @@ let budgetController = (function() {
             }
         },
 
+        calculatePercentages: function() {
+            // calculate percentage of each expense in the array : use forEach method
+            data.allItems.exp.forEach(function(current) {
+                current.calcPercentage(data.totals.inc)
+            })
+        },
+
+        getPercentages: function() {
+            // use map method iot store the calculated percentages and return them
+            let allPerc = data.allItems.exp.map(function(current) {
+                return current.getPercentage()
+            })
+            return allPerc
+        },
+
         // testig method to see if input go to data
         testing: function() {
             console.log(data)
@@ -121,6 +150,7 @@ let UIcontroller = (function() {
         inputType: 'add__type',
         inputDescription: 'add__description',
         inputValue: 'add__value',
+        inputChangable: 'changable',
         inputBtn: 'add__btn',
         incomeContainer: 'income__list',
         expenseContainer: 'expense__list',
@@ -128,7 +158,29 @@ let UIcontroller = (function() {
         incomeLabel: 'budget__income--value',
         expenseLabel: 'budget__expenses--value',
         percentageLabel: 'budget__expenses--percentage',
-        container: 'container'
+        container: 'container',
+        expensePercLabel: 'item__percentage',
+        dateLabel: 'budget__title--month'
+    }
+
+    // format number fonction, private because only use in this module
+    let formatNumber = function(num, type) {
+        // 23465.84839 -> + 23 465.85
+        let numSplit, int, dec
+        num = Math.abs(num)
+        // exactly 2 decimal points
+        num = num.toFixed(2) // return a string
+        // space separate the thousands
+        numSplit = num.split('.') // array with integer and decimal part
+        int = numSplit[0]
+        if (int.length > 3) {
+            int = int.substr(0, int.length - 3) + ' ' + int.substr(int.length - 3, 3)
+        }
+        dec = numSplit[1]
+
+        // + or - before the number
+        // compact if else statement 
+        return (type === 'exp' ? '-' : '+') + ' ' + int + '.' + dec
     }
 
     // PUBLIC PART -------------------------
@@ -170,7 +222,7 @@ let UIcontroller = (function() {
             // replace the placeholder text with some actual data
             newHtml = html.replace('%id%', obj.id)
             newHtml = newHtml.replace('%description%', obj.description)
-            newHtml = newHtml.replace('%value%', obj.value)
+            newHtml = newHtml.replace('%value%', formatNumber(obj.value, type))
 
             // insert the HTML into the DOM
             // insert as child of income/expense container
@@ -199,17 +251,64 @@ let UIcontroller = (function() {
         displayBudget: function(obj) {
             // change the textContent of each element with the budgets values
             // use the values returned by the getBudget method (see the name), applied to an object
-            document.getElementById(DOMstrings.budgetLabel).textContent = obj.budget
-            document.getElementById(DOMstrings.incomeLabel).textContent = obj.totalInc
-            document.getElementById(DOMstrings.expenseLabel).textContent = obj.totalExp
+            // use formatNumber fonction, so need to create some artificial type for budget :
+            obj.budget > 0 ? type = 'inc' : type = 'exp'
+
+            document.getElementById(DOMstrings.budgetLabel).textContent = formatNumber(obj.budget, type)
+            document.getElementById(DOMstrings.incomeLabel).textContent = formatNumber(obj.totalInc, 'inc')
+            document.getElementById(DOMstrings.expenseLabel).textContent = formatNumber(obj.totalExp, 'exp')
+
             if (obj.percentage > 0) {
                 document.getElementById(DOMstrings.percentageLabel).textContent = obj.percentage + ' %'
             } else {
                 document.getElementById(DOMstrings.percentageLabel).textContent = '---'
             }
+        },
+
+        // display individual percentages for each expense
+        displayPercentages: function(percentages) {
+            let fields = document.querySelectorAll('.' + DOMstrings.expensePercLabel)
+            // fields is a nodeListe, so no forEach because not array
+            // must create a custom forEach method to apply on the nodeList
+
+            let nodeListForEach = function(list, callback) {
+                let len = list.length
+                for (let i = 0; i < len; i++) {
+                    callback(list[i], i)
+                }
+            }
+
+            nodeListForEach(fields, function(current, index) {
+                if (percentages[index] > 0) {
+                    current.textContent = percentages[index] + ' %'
+                } else {
+                    current.textContent = '---'
+                }
+            })
+        },
+
+        // fonction to display month and year, for the init function
+        displayMonth: function() {
+            let now, year, month, months
+            now = new Date()
+            year = now.getFullYear()
+            month = now.getMonth()
+            months = ['Janvier','Février','Mars','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+            document.getElementById(DOMstrings.dateLabel).textContent = months[month - 1] + ' ' + year
+        },
+
+        //change input border depending on the type of transaction
+        changedType: function() {
+            let field, fields, button
+            fields = document.getElementsByClassName(DOMstrings.inputChangable)
+            for  (field of fields) {
+                field.classList.toggle('red-focus')
+            }
+
+            button = document.getElementById(DOMstrings.inputBtn)
+            button.classList.toggle('red')
         }
     }
-
 })();
 
 // app controler module
@@ -233,6 +332,9 @@ let controler = (function(budgetCtrl, UICtrl) {
       // add event listener to the container div, which will work with all income and expense childs due to event delegation
       // because it's impossible to add event listener to an element not yet in the DOM
       document.getElementById(DOM.container).addEventListener('click', ctrlDeleteItem)
+
+      // add event listener on change of type of input (income or expense)
+      document.getElementById(DOM.inputType).addEventListener('change', UICtrl.changedType)
     }
 
     let updateBudget = function() {
@@ -244,6 +346,16 @@ let controler = (function(budgetCtrl, UICtrl) {
 
         // 3. Display the budget to the UI controller
         UICtrl.displayBudget(budget)
+    }
+
+    // update individual percentage on each entry add or delete
+    let updatePercentages = function() {
+        // 1. calculate the percentages
+        budgetCtrl.calculatePercentages()
+        // 2. Read percentage from the budget controller
+        let percentages = budgetCtrl.getPercentages()
+        // 3. Update percentage in the UI controller
+        UICtrl.displayPercentages(percentages)
     }
 
     let ctrlAddItem = function() {
@@ -264,6 +376,9 @@ let controler = (function(budgetCtrl, UICtrl) {
 
             // 5. Calculate and update the budget
             updateBudget()
+
+            // 6. Calculate and update the budget
+            updatePercentages()
         } 
     }
 
@@ -286,6 +401,9 @@ let controler = (function(budgetCtrl, UICtrl) {
 
         // 3. update and show the new budget
         updateBudget()
+
+        // 4. Calculate and update the budget
+        updatePercentages()
     }
 
     // PUBLIC PART -------------------------
@@ -300,6 +418,7 @@ let controler = (function(budgetCtrl, UICtrl) {
                 totalExp: 0,
                 percentage: 0
             })
+            UICtrl.displayMonth()
 
             console.log('Application started')
         }
